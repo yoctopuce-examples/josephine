@@ -123,17 +123,25 @@ def functionValueChangeCallback(fct, value_str):
     coffee_machine.updateProximity(value)
 
 
+import argparse
+
+parser = argparse.ArgumentParser(description='Use a Yocto-Proximity to pilot a Jura Coffee machine.')
+parser.add_argument('--hub', action='append', help='sum the integers (default: find the max)')
+args = parser.parse_args()
+print(args)
+
 errmsg = YRefParam()
 
 # No exception please
 YAPI.DisableExceptions()
 
-# Setup the API to use local USB devices
-if YAPI.RegisterHub("192.168.1.52", errmsg) != YAPI.SUCCESS:
-    sys.exit("init error" + errmsg.value)
+if args.hub == None:
+    args.hub = ['usb']
 
-if YAPI.RegisterHub("usb", errmsg) != YAPI.SUCCESS:
-    sys.exit("init error" + errmsg.value)
+for url in args.hub:
+    # Setup the API to use local USB devices
+    if YAPI.RegisterHub(url, errmsg) != YAPI.SUCCESS:
+        sys.exit("init error" + errmsg.value)
 
 proximity = YProximity.FirstProximity()
 if proximity is None:
