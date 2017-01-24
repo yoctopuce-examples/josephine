@@ -1,13 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-import os, sys
+import argparse
 
-# add ../../Sources to the PYTHONPATH
-from yoctopuce.yocto_api import *
-from yoctopuce.yocto_relay import *
 from yoctopuce.yocto_buzzer import *
-from yoctopuce.yocto_proximity import *
 from yoctopuce.yocto_led import *
+from yoctopuce.yocto_proximity import *
+from yoctopuce.yocto_relay import *
 
 
 class CoffeeMachine(object):
@@ -59,6 +57,10 @@ class CoffeeMachine(object):
                 return
             if value < 400 or value > 800:
                 self._set_missaligned_state()
+        elif self.state == self.WAITING_PICKUP:
+            if value >= 1000:
+                self._set_ready_state()
+                return
 
     def _set_ready_state(self):
         if self.state != self.READY:
@@ -66,6 +68,7 @@ class CoffeeMachine(object):
             self.tm = datetime.datetime.now()
             self.state = self.READY
             self.buzzer.set_volume(0)
+            self.buzzer.stopPlaySeq()
             led_green.set_blinking(YLed.BLINKING_RELAX)
             self.led_red.set_power(YLed.POWER_OFF)
             self.led_green.set_power(YLed.POWER_ON)
@@ -86,7 +89,7 @@ class CoffeeMachine(object):
             print("switch to state DISPENSING")
             self.tm = datetime.datetime.now()
             self.state = self.DISPENSING
-            self.buzzer.set_volume(0)
+            self.buzzer.stopPlaySeq()
             led_red.set_blinking(YLed.BLINKING_STILL)
             self.led_red.set_power(YLed.POWER_ON)
             self.led_green.set_power(YLed.POWER_OFF)
@@ -96,8 +99,7 @@ class CoffeeMachine(object):
             print("switch to state WAITING_PICKUP")
             self.tm = datetime.datetime.now()
             self.state = self.WAITING_PICKUP
-            self.buzzer.set_volume(100)
-            self.buzzer.set_frequency(750)  # fixme use sequence
+            self.playAlertSong()
             led_red.set_blinking(YLed.BLINKING_AWARE)
             self.led_red.set_power(YLed.POWER_OFF)
             self.led_green.set_power(YLed.POWER_ON)
@@ -108,6 +110,13 @@ class CoffeeMachine(object):
             delta = now - self.tm
             if delta.total_seconds() > 60:
                 self._set_pickup_state()
+
+    def playAlertSong(self):
+        self.buzzer.resetPlaySeq()
+        self.buzzer.set_volume(100)
+        self.buzzer.addFreqMoveToPlaySeq(1000, 0)
+        self.buzzer.addFreqMoveToPlaySeq(0, 500)
+        self.buzzer.startPlaySeq()
 
 
 def reportError(msg):
@@ -122,8 +131,6 @@ def functionValueChangeCallback(fct, value_str):
     global coffee_machine
     coffee_machine.updateProximity(value)
 
-
-import argparse
 
 parser = argparse.ArgumentParser(description='Use a Yocto-Proximity to pilot a Jura Coffee machine.')
 parser.add_argument('--hub', action='append', help='sum the integers (default: find the max)')
